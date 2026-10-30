@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env/
+
+# Data (never commit scans)
+*.nii
+*.nii.gz
+data/
+datasets/
+
+# Experiment outputs
+runs/
+*.pt
+*.pth
+*.png
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
