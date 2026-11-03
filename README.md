@@ -44,6 +44,21 @@ Or run the minimal end-to-end example:
 python examples/quickstart.py /path/to/healthy_T1.nii.gz
 ```
 
+## Turning scores into decisions
+
+The pipeline emits an anomaly *score* per slice, not a yes/no decision. A
+straightforward way to pick a threshold on healthy data:
+
+1. Run `src/evaluate.py` on a held-out set of healthy slices and record the
+   mean anomaly scores.
+2. Take a high percentile of those healthy scores — e.g. the 95th — as the
+   flag threshold.
+3. Flag slices above the threshold, then review their anomaly maps before
+   drawing any conclusion.
+
+State the threshold and how it was chosen next to any reported metric; a
+score without a stated operating point is not a decision.
+
 ## Repository structure
 
 ```
