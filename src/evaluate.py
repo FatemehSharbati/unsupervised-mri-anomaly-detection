@@ -93,18 +93,21 @@ def main() -> None:
 
     # --- demo: synthetic blobs -> AUROC (toy check, not a clinical claim) ---
     n_demo = min(args.n_demo, len(dataset))
-    demo_scores, demo_labels = [], []
-    with torch.no_grad():
-        for i in range(n_demo):
-            clean = dataset.slices[i]  # (1, H, W) numpy
-            corrupted = add_synthetic_blob(clean, rng)
-            for arr, label in ((clean, 0), (corrupted, 1)):
-                t = torch.from_numpy(arr[None])  # add batch dim
-                err = reconstruction_error_map(t, model(t))
-                demo_scores.append(float(anomaly_scores(err)[0]))
-                demo_labels.append(label)
-    auroc = roc_auc_score(demo_labels, demo_scores)
-    print(f"Demo AUROC on {n_demo} synthetic-blob slices (toy check): {auroc:.3f}")
+    if n_demo > 0:
+        demo_scores, demo_labels = [], []
+        with torch.no_grad():
+            for i in range(n_demo):
+                clean = dataset.slices[i]  # (1, H, W) numpy
+                corrupted = add_synthetic_blob(clean, rng)
+                for arr, label in ((clean, 0), (corrupted, 1)):
+                    t = torch.from_numpy(arr[None])  # add batch dim
+                    err = reconstruction_error_map(t, model(t))
+                    demo_scores.append(float(anomaly_scores(err)[0]))
+                    demo_labels.append(label)
+        auroc = roc_auc_score(demo_labels, demo_scores)
+        print(f"Demo AUROC on {n_demo} synthetic-blob slices (toy check): {auroc:.3f}")
+    else:
+        print("Skipping synthetic-blob demo (--n-demo 0).")
 
     # --- save an example anomaly map for the most anomalous slice ---
     worst = int(np.argmax(clean_scores))
