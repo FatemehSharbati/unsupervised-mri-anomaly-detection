@@ -13,6 +13,7 @@ import nibabel as nib
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset
 
 from src.data import NiftiSliceDataset, train_val_split
 from src.model import BrainAutoencoder, anomaly_scores, reconstruction_error_map
@@ -48,10 +49,53 @@ def test_train_step():
     assert loss.item() > 0, "loss must be positive"
 
 
-def test_nifti_dataset(tmp_dir: Path):
+def test_anomaly_scores_nonzero():
+    # per-slice means of a known error map: 1.0 everywhere -> 1.0, 4.0 -> 4.0
+    err = torch.stack([torch.ones(1, 4, 4), torch.full((1, 4, 4), 4.0)])
+    scores = anomaly_scores(err)
+    assert scores.shape == (2,), f"unexpected scores shape {scores.shape}"
+    assert torch.allclose(scores, torch.tensor([1.0, 4.0])), f"scores {scores}"
+
+
+class _TinyDataset(Dataset):
+    """Minimal stand-in dataset for testing train_val_split."""
+
+    def __init__(self, n: int):
+        self.n = n
+
+    def __len__(self) -> int:
+        return self.n
+
+    def __getitem__(self, idx: int) -> torch.Tensor:
+        return torch.tensor([idx])
+
+
+def test_train_val_split_deterministic():
+    ds = _TinyDataset(10)
+    train1, val1 = train_val_split(ds, val_fraction=0.3, seed=0)
+    train2, val2 = train_val_split(ds, val_fraction=0.3, seed=0)
+    assert train1.indices == train2.indices, "split must be seed-deterministic"
+    assert val1.indices == val2.indices, "split must be seed-deterministic"
+    assert set(train1.indices) | set(val1.indices) == set(range(10)), \
+        "split must cover every sample"
+    assert not (set(train1.indices) & set(val1.indices)), \
+        "train and val must be disjoint"
+
+
+def test_brain_autoencoder_input_size_validation():
+    try:
+        BrainAutoencoder(input_size=60)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("input_size=60 (not divisible by 8) must raise ValueError")
+    BrainAutoencoder(input_size=64)  # must not raise
+
+
+def test_nifti_dataset(tmp_path: Path):
     rng = np.random.default_rng(0)
     vol = rng.normal(size=(32, 32, 10)).astype(np.float32)
-    path = tmp_dir / "vol.nii.gz"
+    path = tmp_path / "vol.nii.gz"
     nib.save(nib.Nifti1Image(vol, np.eye(4)), str(path))
 
     ds = NiftiSliceDataset(str(path), axis=2)
