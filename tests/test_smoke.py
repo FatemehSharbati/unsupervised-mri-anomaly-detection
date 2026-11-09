@@ -109,6 +109,36 @@ def test_nifti_dataset(tmp_path: Path):
     assert len(train_ds) + len(val_ds) == 10
 
 
+def test_nifti_dataset_rejects_4d_volume(tmp_path: Path):
+    # A 4D volume (e.g. fMRI time series) must fail loudly instead of
+    # silently producing 5D "slices" that break the model downstream.
+    rng = np.random.default_rng(0)
+    vol = rng.normal(size=(16, 16, 8, 4)).astype(np.float32)
+    path = tmp_path / "vol4d.nii.gz"
+    nib.save(nib.Nifti1Image(vol, np.eye(4)), str(path))
+    try:
+        NiftiSliceDataset(str(path))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("4D volume must raise ValueError")
+
+
+def test_nifti_dataset_rejects_bad_axis(tmp_path: Path):
+    rng = np.random.default_rng(0)
+    vol = rng.normal(size=(16, 16, 8)).astype(np.float32)
+    path = tmp_path / "vol.nii.gz"
+    nib.save(nib.Nifti1Image(vol, np.eye(4)), str(path))
+    try:
+        NiftiSliceDataset(str(path), axis=3)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("axis=3 must raise ValueError")
+    ds = NiftiSliceDataset(str(path), axis=-1)  # negative axis is valid
+    assert len(ds) == 8
+
+
 if __name__ == "__main__":
     test_forward()
     test_error_map()

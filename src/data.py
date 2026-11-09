@@ -21,6 +21,12 @@ class NiftiSliceDataset(Dataset):
     def __init__(self, nifti_path: str, axis: int = 2):
         img = nib.load(str(nifti_path))
         data = np.asarray(img.get_fdata(dtype=np.float32))
+        if data.ndim != 3:
+            raise ValueError(
+                f"expected a 3D volume, got shape {data.shape} from {nifti_path}"
+            )
+        if not -3 <= axis < 3:
+            raise ValueError(f"axis must be in range [-3, 3), got {axis}")
         mean = float(data.mean())
         std = float(data.std())
         data = (data - mean) / (std + 1e-8)
