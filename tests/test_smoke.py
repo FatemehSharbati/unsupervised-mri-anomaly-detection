@@ -16,6 +16,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 
 from src.data import NiftiSliceDataset, train_val_split
+from src.evaluate import add_synthetic_blob
 from src.model import BrainAutoencoder, anomaly_scores, reconstruction_error_map
 
 
@@ -137,6 +138,31 @@ def test_nifti_dataset_rejects_bad_axis(tmp_path: Path):
         raise AssertionError("axis=3 must raise ValueError")
     ds = NiftiSliceDataset(str(path), axis=-1)  # negative axis is valid
     assert len(ds) == 8
+
+
+def test_add_synthetic_blob_stays_inside_slice():
+    rng = np.random.default_rng(0)
+    clean = np.zeros((1, 32, 32), dtype=np.float32)
+    corrupted = add_synthetic_blob(clean, rng, radius=6, intensity=3.0)
+    assert corrupted.shape == clean.shape
+    assert (corrupted >= clean).all(), "blob must only brighten pixels"
+    assert float(corrupted.max()) == 3.0, "blob peak must equal intensity"
+    # a radius-6 disk centred >= 6px from the edge cannot touch a corner
+    assert float(corrupted[0, 0, 0]) == 0.0
+    assert float(corrupted[0, -1, -1]) == 0.0
+
+
+def test_add_synthetic_blob_rejects_oversized_radius():
+    rng = np.random.default_rng(0)
+    clean = np.zeros((1, 32, 32), dtype=np.float32)
+    try:
+        add_synthetic_blob(clean, rng, radius=16)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "radius 16 in a 32x32 slice must raise ValueError"
+        )
 
 
 if __name__ == "__main__":

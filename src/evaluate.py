@@ -44,6 +44,11 @@ def add_synthetic_blob(slice_chw: np.ndarray, rng: np.random.Generator,
     """Add a small bright disk to a (1, H, W) slice (demo purposes only)."""
     corrupted = slice_chw.copy()
     height, width = corrupted.shape[1], corrupted.shape[2]
+    if radius < 1 or 2 * radius >= min(height, width):
+        raise ValueError(
+            f"blob radius {radius} must be >= 1 and fit inside a "
+            f"{height}x{width} slice"
+        )
     cy = int(rng.integers(radius, height - radius))
     cx = int(rng.integers(radius, width - radius))
     yy, xx = np.ogrid[:height, :width]
